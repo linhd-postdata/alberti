@@ -55,3 +55,4 @@ byobu new-window -t "alberti" "python run_language_modeling.py --output_dir=./mo
 byobu new-window -t "alberti" "htop"
 byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
 byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
+echo "byobu attach -t alberi"
