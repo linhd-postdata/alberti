@@ -1,14 +1,14 @@
 #!/bin/bash
 echo "Installing dependencies"
 sudo apt-get -y update
-sudo apt-get install -y jq byobu shuf split
+sudo apt-get install -y jq byobu
 pip install -qU pip
-pip install -r requirements.txt
-if [ -z "${TAG}" ]; then
+pip install -r https://raw.githubusercontent.com/linhd-postdata/alberti/master/requirements.txt
+if [ -n "${TAG}" ]; then
     sudo apt-get install -y nfs-common
     sudo mkdir -p /shared
+    sudo mount 10.139.154.226:/shared /shared
     sudo chmod go+rw /shared
-    sudo mount 10.225.255.2:/shared /shared
     df -h --type=nfs
     mkdir -p "/shared/$TAG"
     mkdir -p "/shared/$TAG/runs"
@@ -45,7 +45,7 @@ mv es_* data
 
 echo "Downloading scripts"
 curl -o run_language_modeling.py -q https://raw.githubusercontent.com/huggingface/transformers/master/examples/language-modeling/run_language_modeling.py
-sed -i "1s/^/import os;f=open('pid','w');f.write(str(os.getpid()))\n/" run_language_modelin
+sed -i "1s/^/import os;f=open('pid','w');f.write(str(os.getpid()))\n/" run_language_modeling.py
 curl -o shutdown.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/shutdown.sh
 chmod +x shutdown.sh
 
