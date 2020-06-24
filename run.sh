@@ -56,4 +56,4 @@ byobu new-window -t "alberti" "htop"
 byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
 sleep 10
 byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
-echo "byobu attach -t alberi"
+echo "byobu attach -t alberti"
