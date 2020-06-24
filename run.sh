@@ -6,17 +6,17 @@ pip install -qU pip
 pip install -r requirements.txt
 if [ -z "${TAG}" ]; then
     sudo apt-get install -y nfs-common
-    sudo mkdir -p /share
-    sudo chmod go+rw /share
-    sudo mount 10.225.255.2:/share /share
+    sudo mkdir -p /shared
+    sudo chmod go+rw /shared
+    sudo mount 10.225.255.2:/shared /shared
     df -h --type=nfs
-    mkdir -p "/share/$TAG"
-    mkdir -p "/share/$TAG/runs"
-    mkdir -p "/share/$TAG/data"
-    mkdir -p "/share/$TAG/models"
-    ln -s "/share/$TAG/runs" runs
-    ln -s "/share/$TAG/data" data
-    ln -s "/share/$TAG/models" models
+    mkdir -p "/shared/$TAG"
+    mkdir -p "/shared/$TAG/runs"
+    mkdir -p "/shared/$TAG/data"
+    mkdir -p "/shared/$TAG/models"
+    ln -s "/shared/$TAG/runs" runs
+    ln -s "/shared/$TAG/data" data
+    ln -s "/shared/$TAG/models" models
 else
     mkdir runs
     mkdir data
