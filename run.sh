@@ -18,9 +18,9 @@ if [ -n "${TAG}" ]; then
     ln -s "/shared/$TAG/data" data
     ln -s "/shared/$TAG/models" models
 else
-    mkdir runs
-    mkdir data
-    mkdir models
+    mkdir -p runs
+    mkdir -p data
+    mkdir -p models
 fi
 
 echo "Downloading corpora"
@@ -56,4 +56,6 @@ byobu new-window -t "alberti" "htop"
 byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
 sleep 10
 byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
-echo "byobu attach -t alberti"
+echo "--------------------------------"
+echo "| Run: byobu attach -t alberti |"
+echo "--------------------------------"
