@@ -51,7 +51,7 @@ chmod +x shutdown.sh
 
 echo "Launching jobs"
 byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
-byobu new-window -t "alberti" "python run_language_modeling.py --output_dir=./models/alBERTi-$TAG --model_type=roberta --model_name_or_path=roberta-base --do_train --train_data_file=./data/es_data.train.txt --do_eval --eval_data_file=./data/es_data.eval.txt --evaluate_during_training --save_total_limit 5 --save_steps 1000 --mlm --overwrite_output_dir --n_gpu 2"
+byobu new-window -t "alberti" "python run_language_modeling.py --output_dir=./models/alBERTi-$TAG --model_type=roberta --model_name_or_path=roberta-base --do_train --train_data_file=./data/es_data.train.txt --do_eval --eval_data_file=./data/es_data.eval.txt --evaluate_during_training --save_total_limit 5 --save_steps 1000 --mlm --overwrite_output_dir"
 byobu new-window -t "alberti" "htop"
 byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
 sleep 10
