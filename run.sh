@@ -1,13 +1,89 @@
 #!/bin/bash
-echo "Installing dependencies"
-sudo apt-get -y update
-sudo apt-get install -y jq byobu
-pip install -qU pip
-pip install -r https://raw.githubusercontent.com/linhd-postdata/alberti/master/requirements.txt
-if [ -n "${TAG}" ]; then
+say() {
+    echo "$@" | sed \
+        -e "s/\(\(@\(red\|green\|yellow\|blue\|magenta\|cyan\|white\|reset\|b\|i\|u\)\)\+\)[[]\{2\}\(.*\)[]]\{2\}/\1\4@reset/g" \
+        -e "s/@red/$(tput setaf 1)/g" \
+        -e "s/@green/$(tput setaf 2)/g" \
+        -e "s/@yellow/$(tput setaf 3)/g" \
+        -e "s/@blue/$(tput setaf 4)/g" \
+        -e "s/@magenta/$(tput setaf 5)/g" \
+        -e "s/@cyan/$(tput setaf 6)/g" \
+        -e "s/@white/$(tput setaf 7)/g" \
+        -e "s/@reset/$(tput sgr0)/g" \
+        -e "s/@b/$(tput bold)/g" \
+        -e "s/@i/$(tput sitm)/g" \
+        -e "s/@u/$(tput sgr 0 1)/g"
+}
+
+spanish() {
+    use_gutenberg=$1
+    say @b"Downloading Spanish corpora" @reset
+    say @b"- Averell..." @reset
+    averell download 2 3 4 5 6
+    echo "Exporting corpora"
+    averell export 2 3 4 5 6 --granularity line
+    echo "Extracting lines"
+    cat corpora/line.json | jq -r ".[] | select(.manually_checked == false) | .line_text" > _es_train.txt
+    cat corpora/line.json | jq -r ".[] | select(.manually_checked == true)  | [.line_text,.metrical_pattern]|@csv" | uniq > es_test.csv
+    rm corpora/line.json
+    say @b"- Poesi.as..." @reset
+    curl -o data/poesias_corpora.json -q https://raw.githubusercontent.com/linhd-postdata/poesi.as/master/poesias_corpora.json
+    cat data/poesias_corpora.json | jq -r '. | to_entries[] | select(.value) | .value.text' >> _es_train.txt
+    if [ -n "${use_gutenberg}" ]; then
+        say @b"- Project Gutenberg..." @reset
+        curl https://raw.githubusercontent.com/linhd-postdata/projectgutenberg-poetry-corpora/master/Spanish_poetry.txt >> _es_train.txt
+    fi
+    # clean, shuffle, and split
+    echo "Clean, shuffle, and split (75% training, 25% evaluation)"
+    cat _es_train.txt | awk '{$1=$1};1' | grep -v -e '^[=\*\d[:space:]]*$' | uniq > es_train.txt
+    rm _es_train.txt
+    shuf es_train.txt > es_data.txt
+    split -l $[ $(wc -l es_data.txt|cut -d" " -f1) * 75 / 100 ] -d -a 1 --additional-suffix=.txt es_data.txt es_data.
+    mv es_* data
+    cat data/es_data.0.txt >> data/train.txt
+    cat data/es_data.1.txt >> data/eval.txt
+    echo "Done"
+}
+
+english() {
+    use_gutenberg=$1
+    say @b"Downloading English corpora" @reset
+    say @b"- Averell..." @reset
+    averell download 7
+    echo "Exporting corpora"
+    averell export 7 --granularity line
+    echo "Extracting lines"
+    cat corpora/line.json | jq -r ".[] | select(.manually_checked == false) | .line_text" > _en_train.txt
+    cat corpora/line.json | jq -r ".[] | select(.manually_checked == true)  | [.line_text,.metrical_pattern]|@csv" | uniq > en_test.csv
+    rm corpora/line.json
+    if [ -n "${use_gutenberg}" ]; then
+        say @b"- Project Gutenberg..." @reset
+        curl https://raw.githubusercontent.com/linhd-postdata/projectgutenberg-poetry-corpora/master/English_poetry.zip | gunzip >> _en_train.txt
+    fi
+    # clean, shuffle, and split
+    echo "Clean, shuffle, and split (75% training, 25% evaluation)"
+    cat _en_train.txt | awk '{$1=$1};1' | grep -v -e '^[=\*\d[:space:]]*$' | uniq > en_train.txt
+    rm _en_train.txt
+    shuf en_train.txt > en_data.txt
+    split -l $[ $(wc -l en_data.txt|cut -d" " -f1) * 75 / 100 ] -d -a 1 --additional-suffix=.txt en_data.txt en_data.
+    mv en_* data
+    cat data/en_data.0.txt >> data/train.txt
+    cat data/en_data.1.txt >> data/eval.txt
+    echo "Done"
+}
+
+if [ -z "${NODEPS}" ]; then
+    say @b"Installing dependencies" @reset
+    sudo apt-get -y update
+    sudo apt-get install -y jq byobu
     sudo apt-get install -y nfs-common
+    pip install -qU pip
+    pip install -r https://raw.githubusercontent.com/linhd-postdata/alberti/master/requirements.txt
+fi
+
+if [ -n "${TAG}" ]; then
     sudo mkdir -p /shared
-    sudo mount 10.139.154.226:/shared /shared
+    sudo mount ${NFS-10.139.154.226:/shared} /shared
     sudo chmod go+rw /shared
     df -h --type=nfs
     mkdir -p "/shared/$TAG"
@@ -23,39 +99,49 @@ else
     mkdir -p models
 fi
 
-echo "Downloading corpora"
-echo "- Averell..."
-averell download 2 3 4 5 6
-averell download 2 3 4 5 6
-averell export 2 3 4 5 6 --granularity line
-cat corpora/line.json | jq -r ".[] | select(.manually_checked == false) | .line_text" > _es_train.txt
-cat corpora/line.json | jq -r ".[] | select(.manually_checked == true)  | [.line_text,.metrical_pattern]|@csv" | uniq > es_test.csv
-rm corpora/line.json
+if [ -n "${LANGS}" ]; then
+    if [ -f data/train.txt ] ; then
+        rm data/train.txt
+    fi
+    if [ -f data/eval.txt ] ; then
+        rm data/eval.txt
+    fi
+    case "${LANGS}" in
+    *es*)
+        if [[ "$LANGS" == *"ges"* ]]; then
+            spanish true
+        else
+            spanish
+        fi
+        ;&
+    *en*)
+        if [[ "$LANGS" == *"gen"* ]]; then
+            english true
+        else
+            english
+        fi
+        ;;
+    *)
+        echo $"Language not supported. Options are (de|du|es|en|fr|it). Precede with a 'g' for extended corpus from Project Gutenberg."
+        exit 1
+    esac
+fi
 
-echo "- Poesi.as..."
-curl -o corpora/poesias_corpora.json -q https://raw.githubusercontent.com/linhd-postdata/poesi.as/master/poesias_corpora.json
-cat corpora/poesias_corpora.json | jq -r '. | to_entries[] | select(.value) | .value.text' >> _es_train.txt
-cat _es_train.txt | awk '{$1=$1};1' | grep -v -e '^[=\*\d[:space:]]*$' | uniq > es_train.txt
-rm _es_train.txt
-shuf es_train.txt > es_data.txt
-split -l $[ $(wc -l es_data.txt|cut -d" " -f1) * 70 / 100 ] -d -a 1 --additional-suffix=.txt es_data.txt es_data.
-mv es_data.0.txt es_data.train.txt
-mv es_data.1.txt es_data.eval.txt
-mv es_* data
-
-echo "Downloading scripts"
+say @b"Downloading training scripts" @reset
 curl -o run_language_modeling.py -q https://raw.githubusercontent.com/huggingface/transformers/master/examples/language-modeling/run_language_modeling.py
+# we need to capture the process id to shut down the machine when training finishes
 sed -i "1s/^/import os;f=open('pid','w');f.write(str(os.getpid()))\n/" run_language_modeling.py
 curl -o shutdown.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/shutdown.sh
 chmod +x shutdown.sh
-
-echo "Launching jobs"
-byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
-byobu new-window -t "alberti" "python run_language_modeling.py --output_dir=./models/alBERTi-$TAG --model_type=roberta --model_name_or_path=roberta-base --do_train --train_data_file=./data/es_data.train.txt --do_eval --eval_data_file=./data/es_data.eval.txt --evaluate_during_training --save_total_limit 5 --save_steps 1000 --mlm --overwrite_output_dir"
-byobu new-window -t "alberti" "htop"
-byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
-sleep 10
-byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
-echo "--------------------------------"
-echo "| Run: byobu attach -t alberti |"
-echo "--------------------------------"
+if [ -z "${NOTRAIN}" ]; then
+    say @b"Launching jobs" @reset
+    byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
+    byobu new-window -t "alberti" "python run_language_modeling.py --output_dir=./models/${TAG-alberti} --model_type=${MODELTYPE-roberta} --model_name_or_path=${MODELNAME-roberta-base} --do_train --train_data_file=./data/train.txt --do_eval --eval_data_file=./data/eval.txt --evaluate_during_training --save_total_limit 10 --save_steps 100 --overwrite_output_dir ${PARAMS---mlm}"
+    byobu new-window -t "alberti" "htop"
+    byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
+    sleep 10
+    byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
+    say @green "--------------------------------" @reset
+    say @green "| Run: byobu attach -t alberti |" @reset
+    say @green "--------------------------------" @reset
+fi

@@ -130,3 +130,6 @@ dmypy.json
 
 # local
 corpora/
+data/
+runs/
+models/
