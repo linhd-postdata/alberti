@@ -4,4 +4,4 @@ transformers
 tokenizers
 tensorboard
 tensorboardX
-averell==1.0.2
+averell==1.1.0
