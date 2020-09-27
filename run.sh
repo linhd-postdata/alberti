@@ -19,13 +19,12 @@ spanish() {
     use_gutenberg=$1
     say @b"Downloading Spanish corpora" @reset
     say @b"- Averell..." @reset
-    averell download 2 3 4 5 6
     echo "Exporting corpora"
-    averell export 2 3 4 5 6 --granularity line
+    averell export 2 3 4 5 6 --granularity line --filename averell_es.json
     echo "Extracting lines"
-    cat corpora/line.json | jq -r ".[] | select(.manually_checked == false) | .line_text" > _es_train.txt
-    cat corpora/line.json | jq -r ".[] | select(.manually_checked == true)  | [.line_text,.metrical_pattern]|@csv" | uniq > es_test.csv
-    rm corpora/line.json
+    cat averell_es.json | jq -r ".[] | select(.manually_checked == false) | .line_text" > _es_train.txt
+    cat averell_es.json | jq -r ".[] | select(.manually_checked == true)  | [.line_text,.metrical_pattern]|@csv" | uniq > es_test.csv
+    rm averell_es.json
     say @b"- Poesi.as..." @reset
     curl -o data/poesias_corpora.json -q https://raw.githubusercontent.com/linhd-postdata/poesi.as/master/poesias_corpora.json
     cat data/poesias_corpora.json | jq -r '. | to_entries[] | select(.value) | .value.text' >> _es_train.txt
@@ -37,7 +36,7 @@ spanish() {
     echo "Clean, shuffle, and split (75% training, 25% evaluation)"
     cat _es_train.txt | awk '{$1=$1};1' | grep -v -e '^[=\*\d[:space:]]*$' | uniq > es_train.txt
     rm _es_train.txt
-    shuf es_train.txt > es_data.txt
+    # shuf es_train.txt > es_data.txt
     split -l $[ $(wc -l es_data.txt|cut -d" " -f1) * 75 / 100 ] -d -a 1 --additional-suffix=.txt es_data.txt es_data.
     mv es_* data
     cat data/es_data.0.txt >> data/train.txt
@@ -49,13 +48,12 @@ english() {
     use_gutenberg=$1
     say @b"Downloading English corpora" @reset
     say @b"- Averell..." @reset
-    averell download 7
     echo "Exporting corpora"
-    averell export 7 --granularity line
+    averell export en --granularity line --filename averell_en.json
     echo "Extracting lines"
-    cat corpora/line.json | jq -r ".[] | select(.manually_checked == false) | .line_text" > _en_train.txt
-    cat corpora/line.json | jq -r ".[] | select(.manually_checked == true)  | [.line_text,.metrical_pattern]|@csv" | uniq > en_test.csv
-    rm corpora/line.json
+    cat averell_en.json | jq -r ".[] | select(.manually_checked == false) | .line_text" > _en_train.txt
+    cat averell_en.json | jq -r ".[] | select(.manually_checked == true)  | [.line_text,.metrical_pattern]|@csv" | uniq > en_test.csv
+    rm averell_en.json
     if [ -n "${use_gutenberg}" ]; then
         say @b"- Project Gutenberg..." @reset
         curl https://raw.githubusercontent.com/linhd-postdata/projectgutenberg-poetry-corpora/master/English_poetry.zip | gunzip >> _en_train.txt
@@ -64,11 +62,37 @@ english() {
     echo "Clean, shuffle, and split (75% training, 25% evaluation)"
     cat _en_train.txt | awk '{$1=$1};1' | grep -v -e '^[=\*\d[:space:]]*$' | uniq > en_train.txt
     rm _en_train.txt
-    shuf en_train.txt > en_data.txt
+    # shuf en_train.txt > en_data.txt
     split -l $[ $(wc -l en_data.txt|cut -d" " -f1) * 75 / 100 ] -d -a 1 --additional-suffix=.txt en_data.txt en_data.
     mv en_* data
     cat data/en_data.0.txt >> data/train.txt
     cat data/en_data.1.txt >> data/eval.txt
+    echo "Done"
+}
+
+italian() {
+    use_gutenberg=$1
+    say @b"Downloading English corpora" @reset
+    say @b"- Averell..." @reset
+    echo "Exporting corpora"
+    averell export it --granularity line --filename averell_it.json
+    echo "Extracting lines"
+    cat averell_it.json | jq -r ".[] | select(.manually_checked == false) | .line_text" > _it_train.txt
+    cat averell_it.json | jq -r ".[] | select(.manually_checked == true)  | [.line_text,.metrical_pattern]|@csv" | uniq > it_test.csv
+    rm averell_it.json
+    if [ -n "${use_gutenberg}" ]; then
+        say @b"- Project Gutenberg..." @reset
+        curl https://raw.githubusercontent.com/linhd-postdata/projectgutenberg-poetry-corpora/master/Italian_poetry.zip | gunzip >> _it_train.txt
+    fi
+    # clean, shuffle, and split
+    echo "Clean, shuffle, and split (75% training, 25% evaluation)"
+    cat _it_train.txt | awk '{$1=$1};1' | grep -v -e '^[=\*\d[:space:]]*$' | uniq > it_train.txt
+    rm _it_train.txt
+    # shuf it_train.txt > it_data.txt
+    split -l $[ $(wc -l it_data.txt|cut -d" " -f1) * 75 / 100 ] -d -a 1 --additional-suffix=.txt it_data.txt it_data.
+    mv it_* data
+    cat data/it_data.0.txt >> data/train.txt
+    cat data/it_data.1.txt >> data/eval.txt
     echo "Done"
 }
 
@@ -107,13 +131,13 @@ if [ -n "${LANGS}" ]; then
         rm data/eval.txt
     fi
     case "${LANGS}" in
-    *es*)
-        if [[ "$LANGS" == *"ges"* ]]; then
-            spanish true
+    *de*)
+        if [[ "$LANGS" == *"gde"* ]]; then
+            german true
         else
-            spanish
+            german
         fi
-        ;&
+        ;;
     *en*)
         if [[ "$LANGS" == *"gen"* ]]; then
             english true
@@ -121,8 +145,29 @@ if [ -n "${LANGS}" ]; then
             english
         fi
         ;;
+    *es*)
+        if [[ "$LANGS" == *"ges"* ]]; then
+            spanish true
+        else
+            spanish
+        fi
+        ;&
+    *fr*)
+        if [[ "$LANGS" == *"gfr"* ]]; then
+            french true
+        else
+            french
+        fi
+        ;;
+    *it*)
+        if [[ "$LANGS" == *"git"* ]]; then
+            italian true
+        else
+            italian
+        fi
+        ;;
     *)
-        echo $"Language not supported. Options are (de|du|es|en|fr|it). Precede with a 'g' for extended corpus from Project Gutenberg."
+        echo $"Language not supported. Options are (de|en|es|fr|it). Precede with a 'g' for extended corpus from Project Gutenberg."
         exit 1
     esac
 fi
