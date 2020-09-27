@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 # conda install pytorch>=1.6 cudatoolkit=10.2 -c pytorch
-# wandb login 8446bebfec475564b3cf612fbac05939533d3cba
+# wandb login XXX
 import json
 import logging
 import os
@@ -125,7 +125,7 @@ ge_train_eval, ge_test = train_test_split(ge, test_size=0.15, random_state=42)
 ge_train, ge_eval = train_test_split(
     ge_train_eval[["text", "labels"]], test_size=0.176, random_state=42)
 logging.info("German")
-logging.info("- Lines: {} train, {} eval, {} test".format(en_train.shape[0], en_eval.shape[0], en_test.shape[0]))
+logging.info("- Lines: {} train, {} eval, {} test".format(ge_train.shape[0], ge_eval.shape[0], ge_test.shape[0]))
 # sota
 ge_sota = sum(ge_test.meter == ge_test.sota) / ge_test.meter.size
 
@@ -153,7 +153,7 @@ models = (
     ("albert", "albert-xxlarge-v2"),
 )
 langs = ("es", "en", "ge", "multi")
-for lang, (model_type, model, name) in product(langs, models):
+for lang, (model_type, model_name) in product(langs, models):
     model_output = '/shared/bertsification-{}-{}-{}'.format(lang, model_type, model_name)
     model = MultiLabelClassificationModel(
         model_type, model_name, num_labels=11, args={
@@ -185,7 +185,7 @@ for lang, (model_type, model, name) in product(langs, models):
     elif lang == "ge":
         train_df = ge_train
         eval_df = ge_eval
-    model.train_model(train_df, eval_df)
+    model.train_model(train_df, eval_df=eval_df)
     # evaluate the model
     result, model_outputs, wrong_predictions = model.eval_model(eval_df)
     logging.info(str(result))
