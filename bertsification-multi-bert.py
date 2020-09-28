@@ -14,7 +14,7 @@ from itertools import product
 from simpletransformers.classification import MultiLabelClassificationModel
 from sklearn.model_selection import train_test_split
 
-logging.basicConfig(level=logging.INFO, filename=time.strftime("/shared/bertisifcation-%Y-%m-%d.log"))
+logging.basicConfig(level=logging.INFO, filename=time.strftime("models/bertsification-%Y-%m-%d.log"))
 with open('pid', 'w') as pid:
     pid.write(str(os.getpid()))
 
@@ -154,10 +154,11 @@ models = (
 )
 langs = ("es", "en", "ge", "multi")
 for lang, (model_type, model_name) in product(langs, models):
-    model_output = '/shared/bertsification-{}-{}-{}'.format(lang, model_type, model_name)
+    model_output = 'models/bertsification-{}-{}-{}'.format(lang, model_type, model_name)
     model = MultiLabelClassificationModel(
         model_type, model_name, num_labels=11, args={
             'output_dir': model_output,
+            'best_model_dir': '{}/best'.format(model_output),
             'reprocess_input_data': True,
             'overwrite_output_dir': True,
             'num_train_epochs': 25,
@@ -167,7 +168,7 @@ for lang, (model_type, model_name) in product(langs, models):
             'manual_seed': 42,
             'max_seq_length': 64,
             'use_early_stopping': True,
-            'wandb_project': 'bertsification',
+            'wandb_project': model_output.split("/")[-1],
             # "adam_epsilon": 3e-5,
             "fp16": False,
             "n_gpu": 1,
