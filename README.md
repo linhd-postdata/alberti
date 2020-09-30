@@ -13,6 +13,7 @@ Parameters (as envornment variables):
 - `NFS`. Network filesystem to mount and save all the experiment runs and data to. If not given, local filesystem will be used, so be careful with the volumes termination policy.
 - `NODEPS`. When set, no dependencies will be installed. This is useful for debugging.
 - `NOTRAIN`. When set, no training will occur. This is useful for debugging.
+- `FINETUNE`. When set, a script to fine-tune models on metrical pattern generation is downloaded. The script, [bertsification-multi-bert.py](./bertsification-multi-bert.py), also supports a number of options.
 
 A possible command in Google Cloud would look like this:
 ```bash
