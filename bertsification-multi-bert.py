@@ -9,10 +9,12 @@ import re
 import time
 from itertools import product
 
-from IPython import get_ipython
+import numpy as np
 import pandas as pd
+from IPython import get_ipython
 from simpletransformers.classification import MultiLabelClassificationModel
 from sklearn.model_selection import train_test_split
+
 
 PREFIX = os.environ.get("PREFIX", "bertsification")
 LANGS = [lang.strip() for lang in os.environ.get("LANGS", "es,ge,en,multi").lower().split(",")]
@@ -52,11 +54,17 @@ def label2metric(label):
     return "".join("+" if l else "-" for l in label)
 
 
+def flat_accuracy(preds, labels):
+    pred_flat = np.argmax(preds, axis=1).flatten()
+    labels_flat = labels.flatten()
+    return np.sum(pred_flat == labels_flat) / len(labels_flat)
+
+
 # Spanish
-if not os.path.isfile("adso100.json"):
-    get_ipython().system("averell export adso100 --filename adso100.json")
-if not os.path.isfile("adso.json"):
-    get_ipython().system("averell export adso --filename adso.json")
+# if not os.path.isfile("adso100.json"):
+#     get_ipython().system("averell export adso100 --filename adso100.json")
+# if not os.path.isfile("adso.json"):
+#     get_ipython().system("averell export adso --filename adso.json")
 
 es_test = (pd
     .read_json(open("adso100.json"))
@@ -98,8 +106,8 @@ en_test = (pd
     .rename(columns={"line_text": "text", "metrical_pattern": "meter", "prosodic_meter": "sota"})
 )
 en_test = en_test.query("length in (5,6,7,8,9,10,11)")
-if not os.path.isfile("ecpa.json"):
-    get_ipython().system("averell export ecpa --filename ecpa.json")
+# if not os.path.isfile("ecpa.json"):
+#     get_ipython().system("averell export ecpa --filename ecpa.json")
 en = (pd
     .read_json(open("ecpa.json"))
     .query("manually_checked == True")[["line_text", "metrical_pattern"]]
@@ -183,20 +191,21 @@ for lang, (model_type, model_name) in product(langs, models):
             'reprocess_input_data': True,
             'overwrite_output_dir': True,
             'use_cached_eval_features': True,
-            'num_train_epochs': 100,
-            'save_steps': 10000,
-            'early_stopping_patience': 5,
-            'evaluate_during_training': True,
+            'num_train_epochs': 5,  # For BERT, 2, 3, 4
+            'save_steps': 1000,
+            'early_stopping_patience': 3,
+            'evaluate_during_training': EVAL,
+            #'early_stopping_metric': flat_accuracy,
             #'evaluate_during_training_steps': 1000,
             'manual_seed': 42,
-            # 'learning_rate': 2e-5,
-            'train_batch_size': 32,  # could be 128, but with gradient_acc_steps set to 2 is equivalent
+            # 'learning_rate': 2e-5,  # For BERT, 5e-5, 3e-5, 2e-5
+            'train_batch_size': 32,  # For BERT 16, 32. It could be 128, but with gradient_acc_steps set to 2 is equivalent
             'eval_batch_size': 32,
-            'gradient_accumulation_steps': 2,  # doubles train_batch_size, but gradients and wrights are calculated once every 2 steps
+            # 'gradient_accumulation_steps': 2,  # doubles train_batch_size, but gradients and wrights are calculated once every 2 steps
             'max_seq_length': 64,
             'use_early_stopping': True,
             'wandb_project': model_output.split("/")[-1],
-            # "adam_epsilon": 3e-5,
+            # "adam_epsilon": 3e-5,  # 1e-8
             "silent": False,
             "fp16": False,
             "n_gpu": 1,
@@ -214,11 +223,15 @@ for lang, (model_type, model_name) in product(langs, models):
     elif lang == "ge":
         train_df = ge_train
         eval_df = ge_eval
-    model.train_model(train_df, eval_df=eval_df)
-    # evaluate the model
-    result, model_outputs, wrong_predictions = model.eval_model(eval_df)
-    logging.info(str(result))
-    #logging.info(str(model_outputs))
+    if EVAL:
+        model.train_model(train_df, eval_df=eval_df)
+        # evaluate the model
+        result, model_outputs, wrong_predictions = model.eval_model(eval_df)
+        logging.info(str(result))
+        #logging.info(str(model_outputs))
+    else:
+        train_eval_df = pd.concat([train_df, eval_df, ge_train], ignore_index=True)
+        model.train_model(train_eval_df)
 
     if lang in ("es", "multi"):
         es_test["predicted"], *_ = model.predict(es_test.text.values)
@@ -246,5 +259,5 @@ for lang, (model_type, model_name) in product(langs, models):
         multi_bert = sum(test_df.meter == test_df.pred) / test_df.meter.size
         logging.info("Accuracy [{}:multi]: {} ({})".format(lang, multi_bert, model_name))
     logging.info("Done training '{}'".format(model_output))
-    get_ipython().system("rm -rf `ls -dt models/{}-*/checkpoint*/ | awk 'NR>5'`".format(PREFIX))
+    # get_ipython().system("rm -rf `ls -dt models/{}-*/checkpoint*/ | awk 'NR>5'`".format(PREFIX))
 logging.info("Done training")
