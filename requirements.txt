@@ -2,6 +2,8 @@ numpy
 pandas
 transformers
 tokenizers
+simpletransformers
 tensorboard
 tensorboardX
+wandb
 averell==1.1.0

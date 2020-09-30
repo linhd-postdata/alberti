@@ -178,6 +178,8 @@ curl -o run_language_modeling.py -q https://raw.githubusercontent.com/huggingfac
 sed -i "1s/^/import os;f=open('pid','w');f.write(str(os.getpid()))\n/" run_language_modeling.py
 curl -o shutdown.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/shutdown.sh
 chmod +x shutdown.sh
+curl -o shared.sh.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/shared.sh.sh
+chmod +x shared.sh.sh
 if [ -z "${NOTRAIN}" ]; then
     say @b"Launching jobs" @reset
     byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
@@ -189,4 +191,11 @@ if [ -z "${NOTRAIN}" ]; then
     say @green "--------------------------------" @reset
     say @green "| Run: byobu attach -t alberti |" @reset
     say @green "--------------------------------" @reset
+fi
+if [ -n "${FINETUNE}" ]; then
+    curl -o clean-checkpoints.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/clean-checkpoints.sh
+    chmod +x clean-checkpoints.sh
+    curl -o bertsification-multi-bert.py -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/bertsification-multi-bert.py
+    chmod +x bertsification-multi-bert.py
+    say @green "PREFIX=<prefix> LANGS=es,en,... python -W ignore bertsification-multi-bert.py 2>&1 | tee -a \"runs/$(date +\"%Y-%m-%dT%H%M%S\").log\"" @reset
 fi

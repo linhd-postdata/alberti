@@ -6,12 +6,14 @@ import json
 import logging
 import os
 import re
+import sklearn
 import time
 from itertools import product
 
 import numpy as np
 import pandas as pd
-from IPython import get_ipython
+import wandb
+#from IPython import get_ipython
 from simpletransformers.classification import MultiLabelClassificationModel
 from sklearn.model_selection import train_test_split
 
@@ -184,6 +186,7 @@ langs = LANGS or ("es", "ge", "en", "multi")
 for lang, (model_type, model_name) in product(langs, models):
     logging.info("Starting training of {} for {}".format(model_name, lang))
     model_output = 'models/{}-{}-{}-{}'.format(PREFIX, lang, model_type, model_name.replace("/", "-"))
+    run = wandb.init(project=model_output.split("/")[-1], reinit=True)
     model = MultiLabelClassificationModel(
         model_type, model_name, num_labels=11, args={
             'output_dir': model_output,
@@ -195,8 +198,9 @@ for lang, (model_type, model_name) in product(langs, models):
             'save_steps': 1000,
             'early_stopping_patience': 3,
             'evaluate_during_training': EVAL,
-            #'early_stopping_metric': flat_accuracy,
-            #'evaluate_during_training_steps': 1000,
+            #'early_stopping_metric': "accuracy_score",
+            'evaluate_during_training_steps': 1000,
+            'early_stopping_delta': 0.00001,
             'manual_seed': 42,
             # 'learning_rate': 2e-5,  # For BERT, 5e-5, 3e-5, 2e-5
             'train_batch_size': 32,  # For BERT 16, 32. It could be 128, but with gradient_acc_steps set to 2 is equivalent
@@ -205,6 +209,7 @@ for lang, (model_type, model_name) in product(langs, models):
             'max_seq_length': 64,
             'use_early_stopping': True,
             'wandb_project': model_output.split("/")[-1],
+            #'wandb_kwargs': {'reinit': True},
             # "adam_epsilon": 3e-5,  # 1e-8
             "silent": False,
             "fp16": False,
@@ -239,18 +244,21 @@ for lang, (model_type, model_name) in product(langs, models):
         es_test["pred"] = es_test.apply(lambda x: str(x.predicted)[:int(x.length)], axis=1)
         es_bert = sum(es_test.meter == es_test.pred) / es_test.meter.size
         logging.info("Accuracy [{}:es]: {} ({})".format(lang, es_bert, model_name))
+        wandb.log({"accuracy_es": es_bert})
     if lang in ("en", "multi"):
         en_test["predicted"], *_ = model.predict(en_test.text.values)
         en_test["predicted"] = en_test["predicted"].apply(label2metric)
         en_test["pred"] = en_test.apply(lambda x: str(x.predicted)[:int(x.length)], axis=1)
         en_bert = sum(en_test.meter == en_test.pred) / en_test.meter.size
         logging.info("Accuracy [{}:en]: {} ({})".format(lang, en_bert, model_name))
+        wandb.log({"accuracy_en": en_bert})
     if lang in ("ge", "multi"):
         ge_test["predicted"], *_ = model.predict(ge_test.text.values)
         ge_test["predicted"] = ge_test["predicted"].apply(label2metric)
         ge_test["pred"] = ge_test.apply(lambda x: str(x.predicted)[:int(x.length)], axis=1)
         ge_bert = sum(ge_test.meter == ge_test.pred) / ge_test.meter.size
         logging.info("Accuracy [{}:ge]: {} ({})".format(lang, ge_bert, model_name))
+        wandb.log({"accuracy_ge": ge_bert})
     if lang in ("multi", ):
         test_df = pd.concat([es_test, en_test, ge_test], ignore_index=True)
         test_df["predicted"], *_ = model.predict(test_df.text.values)
@@ -258,6 +266,8 @@ for lang, (model_type, model_name) in product(langs, models):
         test_df["pred"] = test_df.apply(lambda x: str(x.predicted)[:int(x.length)], axis=1)
         multi_bert = sum(test_df.meter == test_df.pred) / test_df.meter.size
         logging.info("Accuracy [{}:multi]: {} ({})".format(lang, multi_bert, model_name))
+        wandb.log({"accuracy_multi": multi_bert})
+    run.finish()
     logging.info("Done training '{}'".format(model_output))
     # get_ipython().system("rm -rf `ls -dt models/{}-*/checkpoint*/ | awk 'NR>5'`".format(PREFIX))
 logging.info("Done training")
