@@ -181,10 +181,8 @@ models = (
 #    ("albert", "albert-xxlarge-v2"),
 )
 if MODELNAMES:
-    models = [
-        [[mtype.strip(), mmodel.strip()] for mtype, mmodel in modelname.split(",")]
-         for modelname in MODELNAMES.split(";")
-    ]
+    models = [list(map(str.strip, modelname.split(",")))
+              for modelname in MODELNAMES.split(";")]
 langs = LANGS or ("es", "ge", "en", "multi")
 for lang, (model_type, model_name) in product(langs, models):
     logging.info("Starting training of {} for {}".format(model_name, lang))
