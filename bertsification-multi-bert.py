@@ -96,6 +96,7 @@ es_train, es_eval = train_test_split(
     es[["text", "labels"]], test_size=0.25, random_state=42)
 logging.info("Spanish")
 logging.info("- Lines: {} train, {} eval, {} test".format(es_train.shape[0], es_eval.shape[0], es_test.shape[0]))
+es_sota = 0.9623  # From Rantanplan
 
 # English
 en_test = (pd
@@ -164,7 +165,6 @@ ge_sota = sum(ge_test.meter == ge_test.sota) / ge_test.meter.size
 # - roberta roberta-large
 # - albert albert-xxlarge-v2
 
-
 # You can set class weights by using the optional weight argument
 models = (
 #    ("xlnet", "xlnet-base-cased"),
@@ -205,8 +205,8 @@ for lang, (model_type, model_name) in product(langs, models):
             'manual_seed': 42,
             # 'learning_rate': 2e-5,  # For BERT, 5e-5, 3e-5, 2e-5
             # For BERT 16, 32. It could be 128, but with gradient_acc_steps set to 2 is equivalent
-            'train_batch_size': 16 if "large" in model_name else 32,
-            'eval_batch_size': 16 if "large" in model_name else 32,
+            'train_batch_size': 8 if "large" in model_name else 32,
+            'eval_batch_size': 8 if "large" in model_name else 32,
             # Doubles train_batch_size, but gradients and wrights are calculated once every 2 steps
             'gradient_accumulation_steps': 2 if "large" in model_name else 1,
             'max_seq_length': 64,
@@ -245,31 +245,39 @@ for lang, (model_type, model_name) in product(langs, models):
         es_test["predicted"], *_ = model.predict(es_test.text.values)
         es_test["predicted"] = es_test["predicted"].apply(label2metric)
         es_test["pred"] = es_test.apply(lambda x: str(x.predicted)[:int(x.length)], axis=1)
-        es_bert = sum(es_test.meter == es_test.pred) / es_test.meter.size
-        logging.info("Accuracy [{}:es]: {} ({})".format(lang, es_bert, model_name))
-        wandb.log({"accuracy_es": es_bert})
+        es_acc = sum(es_test.meter == es_test.pred) / es_test.meter.size
+        logging.info("Accuracy [{}:es]: {} ({})".format(lang, es_acc, model_name))
+        logging.info("SOTA [{}:es]: {}".format(lang, es_sota))
+        wandb.log({"accuracy_es": es_acc})
+        wandb.log({"sota_es": es_sota})
     if lang in ("en", "multi"):
         en_test["predicted"], *_ = model.predict(en_test.text.values)
         en_test["predicted"] = en_test["predicted"].apply(label2metric)
         en_test["pred"] = en_test.apply(lambda x: str(x.predicted)[:int(x.length)], axis=1)
-        en_bert = sum(en_test.meter == en_test.pred) / en_test.meter.size
-        logging.info("Accuracy [{}:en]: {} ({})".format(lang, en_bert, model_name))
-        wandb.log({"accuracy_en": en_bert})
+        en_acc = sum(en_test.meter == en_test.pred) / en_test.meter.size
+        logging.info("Accuracy [{}:en]: {} ({})".format(lang, en_acc, model_name))
+        logging.info("SOTA [{}:en]: {}".format(lang, en_sota))
+        wandb.log({"accuracy_en": en_acc})
+        wandb.log({"sota_en": en_sota})
     if lang in ("ge", "multi"):
         ge_test["predicted"], *_ = model.predict(ge_test.text.values)
         ge_test["predicted"] = ge_test["predicted"].apply(label2metric)
         ge_test["pred"] = ge_test.apply(lambda x: str(x.predicted)[:int(x.length)], axis=1)
-        ge_bert = sum(ge_test.meter == ge_test.pred) / ge_test.meter.size
-        logging.info("Accuracy [{}:ge]: {} ({})".format(lang, ge_bert, model_name))
-        wandb.log({"accuracy_ge": ge_bert})
+        ge_acc = sum(ge_test.meter == ge_test.pred) / ge_test.meter.size
+        logging.info("Accuracy [{}:ge]: {} ({})".format(lang, ge_acc, model_name))
+        logging.info("SOTA [{}:ge]: {}".format(lang, ge_sota))
+        wandb.log({"accuracy_ge": ge_acc})
+        wandb.log({"sota_ge": ge_sota})
     if lang in ("multi", ):
         test_df = pd.concat([es_test, en_test, ge_test], ignore_index=True)
         test_df["predicted"], *_ = model.predict(test_df.text.values)
         test_df["predicted"] = test_df["predicted"].apply(label2metric)
         test_df["pred"] = test_df.apply(lambda x: str(x.predicted)[:int(x.length)], axis=1)
-        multi_bert = sum(test_df.meter == test_df.pred) / test_df.meter.size
-        logging.info("Accuracy [{}:multi]: {} ({})".format(lang, multi_bert, model_name))
-        wandb.log({"accuracy_multi": multi_bert})
+        multi_acc = sum(test_df.meter == test_df.pred) / test_df.meter.size
+        logging.info("Accuracy [{}:multi]: {} ({})".format(lang, multi_acc, model_name))
+        logging.info("SOTA [{}:multi]: {}".format(lang, (es_sota + en_sota + ge_sota) / 3))
+        wandb.log({"accuracy_multi": multi_acc})
+        wandb.log({"sota_multi": (es_sota + en_sota + ge_sota) / 3})
     run.finish()
     logging.info("Done training '{}'".format(model_output))
     # get_ipython().system("rm -rf `ls -dt models/{}-*/checkpoint*/ | awk 'NR>5'`".format(TAG))
