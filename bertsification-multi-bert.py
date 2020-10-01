@@ -23,7 +23,7 @@ TAG = os.environ.get("TAG", "bertsification")
 LANGS = [lang.strip() for lang in os.environ.get("LANGS", "es,ge,en,multi").lower().split(",")]
 MODELNAMES = os.environ.get("MODELNAMES")
 EVAL = os.environ.get("EVAL", "True").lower() in truthy_values
-OVERWRITE = os.environ.get("OVERWRITE", "False").lower() not in truthy_values
+OVERWRITE = os.environ.get("OVERWRITE", "False").lower() in truthy_values
 logging.basicConfig(level=logging.INFO, filename=time.strftime("models/{}-%Y-%m-%dT%H%M%S.log".format(TAG)))
 with open('pid', 'w') as pid:
     pid.write(str(os.getpid()))
