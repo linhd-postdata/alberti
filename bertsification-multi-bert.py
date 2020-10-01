@@ -18,10 +18,12 @@ from simpletransformers.classification import MultiLabelClassificationModel
 from sklearn.model_selection import train_test_split
 
 
+truthy_values = ("true", "1", "y", "yes")
 TAG = os.environ.get("TAG", "bertsification")
 LANGS = [lang.strip() for lang in os.environ.get("LANGS", "es,ge,en,multi").lower().split(",")]
 MODELNAMES = os.environ.get("MODELNAMES")
-EVAL = os.environ.get("EVAL", "True").lower() in ("true", "1", "y", "yes")
+EVAL = os.environ.get("EVAL", "True").lower() in truthy_values
+OVERWRITE = os.environ.get("OVERWRITE", "False").lower() not in truthy_values
 logging.basicConfig(level=logging.INFO, filename=time.strftime("models/{}-%Y-%m-%dT%H%M%S.log".format(TAG)))
 with open('pid', 'w') as pid:
     pid.write(str(os.getpid()))
@@ -185,8 +187,11 @@ if MODELNAMES:
               for modelname in MODELNAMES.split(";")]
 langs = LANGS or ("es", "ge", "en", "multi")
 for lang, (model_type, model_name) in product(langs, models):
-    logging.info("Starting training of {} for {}".format(model_name, lang))
     model_output = 'models/{}-{}-{}-{}'.format(TAG, lang, model_type, model_name.replace("/", "-"))
+    if OVERWRITE is False and os.path.exists(model_output):
+        logging.info("Skipping training of {} for {}".format(model_name, lang))
+        continue
+    logging.info("Starting training of {} for {}".format(model_name, lang))
     run = wandb.init(project=model_output.split("/")[-1], reinit=True)
     model = MultiLabelClassificationModel(
         model_type, model_name, num_labels=11, args={
