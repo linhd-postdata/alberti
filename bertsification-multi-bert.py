@@ -18,15 +18,15 @@ from simpletransformers.classification import MultiLabelClassificationModel
 from sklearn.model_selection import train_test_split
 
 
-PREFIX = os.environ.get("PREFIX", "bertsification")
+TAG = os.environ.get("TAG", "bertsification")
 LANGS = [lang.strip() for lang in os.environ.get("LANGS", "es,ge,en,multi").lower().split(",")]
-MODELNAME = os.environ.get("MODELNAME")
+MODELNAMES = os.environ.get("MODELNAMES")
 EVAL = os.environ.get("EVAL", "True").lower() in ("true", "1", "y", "yes")
-logging.basicConfig(level=logging.INFO, filename=time.strftime("models/{}-%Y-%m-%dT%H%M%S.log".format(PREFIX)))
+logging.basicConfig(level=logging.INFO, filename=time.strftime("models/{}-%Y-%m-%dT%H%M%S.log".format(TAG)))
 with open('pid', 'w') as pid:
     pid.write(str(os.getpid()))
 logging.info("Experiment '{}' on {}, (eval = {}, pid = {})".format(
-    PREFIX, LANGS, str(EVAL), str(os.getpid()),
+    TAG, LANGS, str(EVAL), str(os.getpid()),
 ))
 
 # SimpleTransformers (based on HuggingFace/Transformers) for Multilingual Scansion
@@ -180,12 +180,15 @@ models = (
 #    ("albert", "albert-base-v2"),
 #    ("albert", "albert-xxlarge-v2"),
 )
-if MODELNAME:
-    models = [MODELNAME.split(",")]
+if MODELNAMES:
+    models = [
+        [[mtype.strip(), mmodel.strip()] for mtype, mmodel in modelname.split(",")]
+         for modelname in MODELNAMES.split(";")
+    ]
 langs = LANGS or ("es", "ge", "en", "multi")
 for lang, (model_type, model_name) in product(langs, models):
     logging.info("Starting training of {} for {}".format(model_name, lang))
-    model_output = 'models/{}-{}-{}-{}'.format(PREFIX, lang, model_type, model_name.replace("/", "-"))
+    model_output = 'models/{}-{}-{}-{}'.format(TAG, lang, model_type, model_name.replace("/", "-"))
     run = wandb.init(project=model_output.split("/")[-1], reinit=True)
     model = MultiLabelClassificationModel(
         model_type, model_name, num_labels=11, args={
@@ -203,9 +206,11 @@ for lang, (model_type, model_name) in product(langs, models):
             'early_stopping_delta': 0.00001,
             'manual_seed': 42,
             # 'learning_rate': 2e-5,  # For BERT, 5e-5, 3e-5, 2e-5
-            'train_batch_size': 32,  # For BERT 16, 32. It could be 128, but with gradient_acc_steps set to 2 is equivalent
-            'eval_batch_size': 32,
-            # 'gradient_accumulation_steps': 2,  # doubles train_batch_size, but gradients and wrights are calculated once every 2 steps
+            # For BERT 16, 32. It could be 128, but with gradient_acc_steps set to 2 is equivalent
+            'train_batch_size': 16 if "large" in model_name else 32,
+            'eval_batch_size': 16 if "large" in model_name else 32,
+            # Doubles train_batch_size, but gradients and wrights are calculated once every 2 steps
+            'gradient_accumulation_steps': 2 if "large" in model_name else 1,
             'max_seq_length': 64,
             'use_early_stopping': True,
             'wandb_project': model_output.split("/")[-1],
@@ -269,5 +274,5 @@ for lang, (model_type, model_name) in product(langs, models):
         wandb.log({"accuracy_multi": multi_bert})
     run.finish()
     logging.info("Done training '{}'".format(model_output))
-    # get_ipython().system("rm -rf `ls -dt models/{}-*/checkpoint*/ | awk 'NR>5'`".format(PREFIX))
+    # get_ipython().system("rm -rf `ls -dt models/{}-*/checkpoint*/ | awk 'NR>5'`".format(TAG))
 logging.info("Done training")
