@@ -7,3 +7,4 @@ tensorboard
 tensorboardX
 wandb
 averell==1.1.0
+fasttext
