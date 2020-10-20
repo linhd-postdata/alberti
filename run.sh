@@ -1,4 +1,9 @@
 #!/bin/bash
+TERM=xterm-256color
+curl -o run.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/run.sh
+chmod +x run.sh
+
+
 say() {
     echo "$@" | sed \
         -e "s/\(\(@\(red\|green\|yellow\|blue\|magenta\|cyan\|white\|reset\|b\|i\|u\)\)\+\)[[]\{2\}\(.*\)[]]\{2\}/\1\4@reset/g" \
@@ -99,7 +104,7 @@ italian() {
 if [ -z "${NODEPS}" ]; then
     say @b"Installing dependencies" @reset
     sudo apt-get -y update
-    sudo apt-get install -y jq byobu
+    sudo apt-get install -y jq byobu git
     sudo apt-get install -y nfs-common
     pip install -qU pip
     pip install -r https://raw.githubusercontent.com/linhd-postdata/alberti/master/requirements.txt
@@ -172,30 +177,52 @@ if [ -n "${LANGS}" ]; then
     esac
 fi
 
-say @b"Downloading training scripts" @reset
-curl -o run_language_modeling.py -q https://raw.githubusercontent.com/huggingface/transformers/master/examples/language-modeling/run_language_modeling.py
-# we need to capture the process id to shut down the machine when training finishes
-sed -i "1s/^/import os;f=open('pid','w');f.write(str(os.getpid()))\n/" run_language_modeling.py
 curl -o shutdown.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/shutdown.sh
 chmod +x shutdown.sh
-curl -o shared.sh.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/shared.sh.sh
-chmod +x shared.sh.sh
-if [ -z "${NOTRAIN}" ]; then
-    say @b"Launching jobs" @reset
-    byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
-    byobu new-window -t "alberti" "python run_language_modeling.py --output_dir=./models/${TAG-alberti} --model_type=${MODELTYPE-roberta} --model_name_or_path=${MODELNAME-roberta-base} --do_train --train_data_file=./data/train.txt --do_eval --eval_data_file=./data/eval.txt --evaluate_during_training --save_total_limit 10 --save_steps 100 --overwrite_output_dir ${PARAMS---mlm}"
-    byobu new-window -t "alberti" "htop"
-    byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
-    sleep 10
-    byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
-    say @green "--------------------------------" @reset
-    say @green "| Run: byobu attach -t alberti |" @reset
-    say @green "--------------------------------" @reset
-fi
-if [ -n "${FINETUNE}" ]; then
-    curl -o clean-checkpoints.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/clean-checkpoints.sh
-    chmod +x clean-checkpoints.sh
-    curl -o bertsification-multi-bert.py -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/bertsification-multi-bert.py
-    chmod +x bertsification-multi-bert.py
-    say @green "PREFIX=<prefix> LANGS=es,en,... python -W ignore bertsification-multi-bert.py 2>&1 | tee -a \"runs/$(date +\"%Y-%m-%dT%H%M%S\").log\"" @reset
+
+if [ -n "${SCRIPT}" ]; then
+    case "${SCRIPT}" in
+    lm)
+        say @b"Downloading language modeling training scripts" @reset
+        curl -o run_language_modeling.py -q https://raw.githubusercontent.com/huggingface/transformers/master/examples/language-modeling/run_language_modeling.py
+        # we need to capture the process id to shut down the machine when training finishes
+        sed -i "1s/^/import os;f=open('pid','w');f.write(str(os.getpid()))\n/" run_language_modeling.py
+        if [ -z "${NOTRAIN}" ]; then
+            say @b"Launching jobs" @reset
+            byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
+            byobu new-window -t "alberti" "python run_language_modeling.py --output_dir=./models/${TAG-alberti} --model_type=${MODELTYPE-roberta} --model_name_or_path=${MODELNAME-roberta-base} --do_train --train_data_file=./data/train.txt --do_eval --eval_data_file=./data/eval.txt --evaluate_during_training --save_total_limit 10 --save_steps 100 --overwrite_output_dir ${PARAMS---mlm}  2>&1 | tee -a \"runs/$(date +\"%Y-%m-%dT%H%M%S\").log\""
+            byobu new-window -t "alberti" "tail -f runs/*.log"
+            byobu new-window -t "alberti" "tail -f models/*.log"
+            byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
+            sleep 10
+            if [ -z "${NOAUTOKILL}" ]; then
+                byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
+            fi
+            say @green "--------------------------------" @reset
+            say @green "| Run: byobu attach -t alberti |" @reset
+            say @green "--------------------------------" @reset
+        fi
+        ;;
+    ft)
+        say @b"Downloading fine-tuning scripts" @reset
+        curl -o clean-checkpoints.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/clean-checkpoints.sh
+        chmod +x clean-checkpoints.sh
+        curl -o bertsification-multi-bert.py -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/bertsification-multi-bert.py
+        chmod +x bertsification-multi-bert.py
+        byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
+        byobu new-window -t "alberti" "TAG=${TAG} LANGS=${TF_LANGS} MODELNAMES=${FT_MODELNAMES} EVAL=${FT_EVAL} OVERWRITE=${FT_OVERWRITE} python -W ignore bertsification-multi-bert.py 2>&1 | tee -a \"runs/$(date +\"%Y-%m-%dT%H%M%S\").log\""
+        byobu new-window -t "alberti" "tail -f runs/*.log"
+        byobu new-window -t "alberti" "tail -f models/*.log"
+        byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
+        sleep 10
+        if [ -z "${NOAUTOKILL}" ]; then
+            byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
+        fi
+        say @green "--------------------------------" @reset
+        say @green "| Run: byobu attach -t alberti |" @reset
+        say @green "--------------------------------" @reset
+    *)
+        echo $"No SCRIPT specified."
+        exit 1
+    esac
 fi
