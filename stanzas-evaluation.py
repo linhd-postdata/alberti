@@ -71,7 +71,7 @@ def train_model(train_df, num_labels):
     logging.info("Starting training of {}".format(model_name))
     run = wandb.init(project=model_output.split("/")[-1], reinit=True)
     model = MultiClassClassificationModel(
-        model_type, model_name, num_labels=11, args={
+        model_type, model_name, num_labels=num_labels, args={
             'output_dir': model_output,
             'best_model_dir': '{}/best'.format(model_output),
             'reprocess_input_data': True,
@@ -112,8 +112,8 @@ def eval_model(model, eval_df, run):
 
 def main() -> None:
     logging.info("Starting...")
-    train, eval_df, num_labels = prepare_data()
-    model, run = train_model(train, num_labels)
+    train_df, eval_df, num_labels = prepare_data()
+    model, run = train_model(train_df, num_labels)
     eval_model(model, eval_df, run)
     logging.info("Done.")
 
