@@ -26,7 +26,7 @@ OVERWRITE = os.environ.get("OVERWRITE", "False").lower() in truthy_values
 logging.basicConfig(level=logging.INFO, filename=time.strftime("models/{}-%Y-%m-%dT%H%M%S.log".format(TAG)))
 with open('pid', 'w') as pid:
     pid.write(str(os.getpid()))
-logging.info("Experiment '{}' on {}, (eval_df = {}, pid = {})".format(
+logging.info("Experiment '{}', (eval_df = {}, pid = {})".format(
     TAG, MODELNAME, str(os.getpid()),
 ))
 
