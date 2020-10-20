@@ -108,6 +108,7 @@ if [ -z "${NODEPS}" ]; then
     sudo apt-get install -y nfs-common
     pip install -qU pip
     pip install -r https://raw.githubusercontent.com/linhd-postdata/alberti/master/requirements.txt
+    wandb login
 fi
 
 if [ -n "${TAG}" ]; then
