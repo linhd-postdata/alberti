@@ -187,21 +187,19 @@ if [ -n "${SCRIPT}" ]; then
         curl -o run_language_modeling.py -q https://raw.githubusercontent.com/huggingface/transformers/master/examples/language-modeling/run_language_modeling.py
         # we need to capture the process id to shut down the machine when training finishes
         sed -i "1s/^/import os;f=open('pid','w');f.write(str(os.getpid()))\n/" run_language_modeling.py
-        if [ -z "${NOTRAIN}" ]; then
-            say @b"Launching jobs" @reset
-            byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
-            byobu new-window -t "alberti" "python run_language_modeling.py --output_dir=./models/${TAG-alberti} --model_type=${MODELTYPE-roberta} --model_name_or_path=${MODELNAME-roberta-base} --do_train --train_data_file=./data/train.txt --do_eval --eval_data_file=./data/eval.txt --evaluate_during_training --save_total_limit 10 --save_steps 100 --overwrite_output_dir ${PARAMS---mlm}  2>&1 | tee -a \"runs/$(date +\"%Y-%m-%dT%H%M%S\").log\""
-            byobu new-window -t "alberti" "tail -f runs/*.log"
-            byobu new-window -t "alberti" "tail -f models/*.log"
-            byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
-            sleep 10
-            if [ -z "${NOAUTOKILL}" ]; then
-                byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
-            fi
-            say @green "--------------------------------" @reset
-            say @green "| Run: byobu attach -t alberti |" @reset
-            say @green "--------------------------------" @reset
+        say @b"Launching jobs" @reset
+        byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
+        byobu new-window -t "alberti" "python run_language_modeling.py --output_dir=./models/${TAG-alberti} --model_type=${MODELTYPE-roberta} --model_name_or_path=${MODELNAME-roberta-base} --do_train --train_data_file=./data/train.txt --do_eval --eval_data_file=./data/eval.txt --evaluate_during_training --save_total_limit 10 --save_steps 100 --overwrite_output_dir ${PARAMS---mlm}  2>&1 | tee -a \"runs/$(date +\"%Y-%m-%dT%H%M%S\").log\""
+        byobu new-window -t "alberti" "tail -f runs/*.log"
+        byobu new-window -t "alberti" "tail -f models/*.log"
+        byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
+        sleep 10
+        if [ -z "${NOAUTOKILL}" ]; then
+            byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
         fi
+        say @green "--------------------------------" @reset
+        say @green "| Run: byobu attach -t alberti |" @reset
+        say @green "--------------------------------" @reset
         ;;
     ft)
         say @b"Downloading fine-tuning scripts" @reset
@@ -221,6 +219,7 @@ if [ -n "${SCRIPT}" ]; then
         say @green "--------------------------------" @reset
         say @green "| Run: byobu attach -t alberti |" @reset
         say @green "--------------------------------" @reset
+        ;;
     *)
         echo $"No SCRIPT specified."
         exit 1
