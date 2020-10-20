@@ -227,7 +227,7 @@ if [ -n "${SCRIPT}" ]; then
         curl -o stanzas-evaluation.py -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/stanzas-evaluation.py
         chmod +x stanzas-evaluation.py
         byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
-        byobu new-window -t "alberti" "TAG=${TAG} MODELNAME=${ST_MODELNAME} OVERWRITE=${ST_OVERWRITE} python -W ignore stanzas-evaluation.py 2>&1 | tee -a \"runs/$(date +\"%Y-%m-%dT%H%M%S\").log\""
+        byobu new-window -t "alberti" "TAG=${TAG} MODELNAME=\"${ST_MODELNAME}\" OVERWRITE=${ST_OVERWRITE} python -W ignore stanzas-evaluation.py 2>&1 | tee -a \"runs/$(date +\"%Y-%m-%dT%H%M%S\").log\""
         byobu new-window -t "alberti" "tail -f runs/*.log"
         byobu new-window -t "alberti" "tail -f models/*.log"
         byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
