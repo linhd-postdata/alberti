@@ -1,7 +1,7 @@
 #!/bin/bash
-TERM=xterm-256color
-curl -o run.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/run.sh
-chmod +x run.sh
+# TERM=xterm-256color
+# curl -o run.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/run.sh
+# chmod +x run.sh
 
 
 say() {
@@ -210,10 +210,10 @@ if [ -n "${SCRIPT}" ]; then
         chmod +x bertsification-multi-bert.py
         byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
         byobu new-window -t "alberti" "TAG=${TAG} LANGS=${TF_LANGS} MODELNAMES=${FT_MODELNAMES} EVAL=${FT_EVAL} OVERWRITE=${FT_OVERWRITE} python -W ignore bertsification-multi-bert.py 2>&1 | tee -a \"runs/$(date +\"%Y-%m-%dT%H%M%S\").log\""
+        sleep 10
         byobu new-window -t "alberti" "tail -f runs/*.log"
         byobu new-window -t "alberti" "tail -f models/*.log"
         byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
-        sleep 10
         if [ -z "${NOAUTOKILL}" ]; then
             byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
         fi
@@ -229,10 +229,10 @@ if [ -n "${SCRIPT}" ]; then
         chmod +x stanzas-evaluation.py
         byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
         byobu new-window -t "alberti" "TAG=${TAG} MODELNAME=\"${ST_MODELNAME}\" OVERWRITE=${ST_OVERWRITE} python -W ignore stanzas-evaluation.py 2>&1 | tee -a \"runs/$(date +\"%Y-%m-%dT%H%M%S\").log\""
+        sleep 10
         byobu new-window -t "alberti" "tail -f runs/*.log"
         byobu new-window -t "alberti" "tail -f models/*.log"
         byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
-        sleep 10
         if [ -z "${NOAUTOKILL}" ]; then
             byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
         fi
