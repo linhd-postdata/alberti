@@ -17,6 +17,7 @@ import wandb
 #from IPython import get_ipython
 from simpletransformers.classification import ClassificationModel
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
 
 
 truthy_values = ("true", "1", "y", "yes")
@@ -46,20 +47,27 @@ def clean_text(string):
     return output.strip()
 
 
+def clean_labels(label):
+    return "unknown" if str(label) == "None" else label
+
+
 def prepare_data():
     df = (pd
         .read_csv("/shared/stanzas-evaluation.csv")
-        .rename(columns={"Stanza_text": "text", "ST_Correct": "labels"})
+        .rename(columns={"Stanza_text": "text", "ST_Correct": "stanza"})
         .assign(
             text=lambda x: x["text"].apply(clean_text),
-            labels=lambda x: "unknown" if str(x) == "None" else x,
+            stanza=lambda x: x["stanza"].apply(clean_labels),
         )
     )
+    label_encoder = LabelEncoder()
+    label_encoder.fit(df["labels"])
+    df["labels"] = label_encoder.transform(df["stanza"])
     train_df, eval_df = train_test_split(
         df, stratify=df["labels"], test_size=0.25, random_state=42
     )
     num_labels = len(df["labels"].unique())
-    return train_df, eval_df, num_labels
+    return train_df, eval_df, label_encoder
 
 
 def train_model(train_df, num_labels):
@@ -114,8 +122,8 @@ def eval_model(model, eval_df, run):
 
 def main() -> None:
     logging.info("Starting...")
-    train_df, eval_df, num_labels = prepare_data()
-    model, run = train_model(train_df, num_labels)
+    train_df, eval_df, label_encoder = prepare_data()
+    model, run = train_model(train_df, len(label_encoder.classes_))
     eval_model(model, eval_df, run)
     logging.info("Done.")
 
