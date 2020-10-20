@@ -61,12 +61,11 @@ def prepare_data():
         )
     )
     label_encoder = LabelEncoder()
-    label_encoder.fit(df["labels"])
+    label_encoder.fit(df["stanza"])
     df["labels"] = label_encoder.transform(df["stanza"])
     train_df, eval_df = train_test_split(
         df, stratify=df["labels"], test_size=0.25, random_state=42
     )
-    num_labels = len(df["labels"].unique())
     return train_df, eval_df, label_encoder
 
 
