@@ -172,7 +172,7 @@ if [ -n "${LANGS}" ]; then
         fi
         ;;
     *)
-        echo $"Language not supported. Options are (de|en|es|fr|it). Precede with a 'g' for extended corpus from Project Gutenberg."
+        echo "Language not supported. Options are (de|en|es|fr|it). Precede with a 'g' for extended corpus from Project Gutenberg."
         exit 1
     esac
 fi
@@ -220,8 +220,28 @@ if [ -n "${SCRIPT}" ]; then
         say @green "| Run: byobu attach -t alberti |" @reset
         say @green "--------------------------------" @reset
         ;;
+    stanzas)
+        say @b"Downloading stanzas-evaluation scripts" @reset
+        curl -o clean-checkpoints.sh -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/clean-checkpoints.sh
+        chmod +x clean-checkpoints.sh
+        curl -o stanzas-evaluation.py -q https://raw.githubusercontent.com/linhd-postdata/alberti/master/stanzas-evaluation.py
+        chmod +x stanzas-evaluation.py
+        byobu new-session -d -s "alberti" "watch -n 1 nvidia-smi"
+        byobu new-window -t "alberti" "TAG=${TAG} MODELNAME=${ST_MODELNAME} OVERWRITE=${ST_OVERWRITE} python -W ignore stanzas-evaluation.py 2>&1 | tee -a \"runs/$(date +\"%Y-%m-%dT%H%M%S\").log\""
+        byobu new-window -t "alberti" "tail -f runs/*.log"
+        byobu new-window -t "alberti" "tail -f models/*.log"
+        byobu new-window -t "alberti" "tensorboard dev upload --logdir ./runs"
+        sleep 10
+        if [ -z "${NOAUTOKILL}" ]; then
+            byobu new-window -t "alberti" "./shutdown.sh $(cat pid)"
+        fi
+        say @green "--------------------------------" @reset
+        say @green "| Run: byobu attach -t alberti |" @reset
+        say @green "--------------------------------" @reset
+        ;;
     *)
-        echo $"No SCRIPT specified."
+        echo "No SCRIPT specified."
         exit 1
+        ;;
     esac
 fi
