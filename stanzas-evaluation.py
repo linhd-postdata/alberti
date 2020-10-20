@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import wandb
 #from IPython import get_ipython
-from simpletransformers.classification import MultiClassClassificationModel
+from simpletransformers.classification import ClassificationModel
 from sklearn.model_selection import train_test_split
 
 
@@ -70,7 +70,7 @@ def train_model(train_df, num_labels):
         sys.exit(0)
     logging.info("Starting training of {}".format(model_name))
     run = wandb.init(project=model_output.split("/")[-1], reinit=True)
-    model = MultiClassClassificationModel(
+    model = ClassificationModel(
         model_type, model_name, num_labels=num_labels, args={
             'output_dir': model_output,
             'best_model_dir': '{}/best'.format(model_output),
@@ -103,6 +103,8 @@ def train_model(train_df, num_labels):
 
 
 def eval_model(model, eval_df, run):
+    result, *_ = model.eval_model(eval_df)
+    logging.info("Results: {}".format(str(result)))
     eval_df["predicted"], *_ = model.predict(eval_df.text.values)
     acc = sum(eval_df.labels == eval_df.predicted) / eval_df.labels.size
     logging.info("Accuracy: {}".format(acc))
