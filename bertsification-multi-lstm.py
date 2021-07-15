@@ -14,8 +14,16 @@ import numpy as np
 import pandas as pd
 import wandb
 #from IPython import get_ipython
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
+from keras.layers import Dense, Input, LSTM, Embedding, Dropout, Activation
+from keras.layers import Bidirectional, GlobalMaxPool1D
+from keras.models import Model
+from keras import initializers, regularizers, constraints, optimizers, layers
 from simpletransformers.classification import MultiLabelClassificationModel
 from sklearn.model_selection import train_test_split
+
+
 
 
 truthy_values = ("true", "1", "y", "yes")
@@ -98,7 +106,6 @@ es_train, es_eval = train_test_split(
     es[["text", "labels"]], test_size=0.25, random_state=42)
 logging.info("Spanish")
 logging.info("- Lines: {} train, {} eval, {} test".format(es_train.shape[0], es_eval.shape[0], es_test.shape[0]))
-es_sota = 0.9623  # From Rantanplan
 
 # English
 en_test = (pd
@@ -134,7 +141,6 @@ logging.info("English")
 logging.info("- Lines: {} train, {} eval, {} test".format(en_train.shape[0], en_eval.shape[0], en_test.shape[0]))
 # sota
 en_sota = sum(en_test.meter == en_test.sota) / en_test.meter.size
-# pd.concat([en[en.meter==m].sample(min(300, len(en[en.meter==m]))) for m in en.meter.unique()], axis=0)
 
 # German
 ge = (pd
@@ -168,6 +174,7 @@ ge_sota = sum(ge_test.meter == ge_test.sota) / ge_test.meter.size
 # - roberta roberta-large
 # - albert albert-xxlarge-v2
 
+
 # You can set class weights by using the optional weight argument
 models = (
 #    ("xlnet", "xlnet-base-cased"),
@@ -180,8 +187,8 @@ models = (
     ("xlmroberta", "xlm-roberta-large"),
     ("electra", "google/electra-base-discriminator"),
 
-#    ("albert", "albert-base-v2"),
-#    ("albert", "albert-xxlarge-v2"),
+    ("albert", "albert-base-v2"),
+    ("albert", "albert-large-v2"),
 )
 if MODELNAMES:
     models = [list(map(str.strip, modelname.split(",")))
@@ -201,9 +208,9 @@ for lang, (model_type, model_name) in product(langs, models):
             'reprocess_input_data': True,
             'overwrite_output_dir': True,
             'use_cached_eval_features': True,
-            'num_train_epochs': 5,  # For BERT, 2, 3, 4
-            'save_steps': 1000,
-            'early_stopping_patience': 3,
+            'num_train_epochs': 100,  # For BERT, 2, 3, 4
+            'save_steps': 10000,
+            'early_stopping_patience': 5,
             'evaluate_during_training': EVAL,
             #'early_stopping_metric': "accuracy_score",
             'evaluate_during_training_steps': 1000,
@@ -211,18 +218,18 @@ for lang, (model_type, model_name) in product(langs, models):
             'manual_seed': 42,
             # 'learning_rate': 2e-5,  # For BERT, 5e-5, 3e-5, 2e-5
             # For BERT 16, 32. It could be 128, but with gradient_acc_steps set to 2 is equivalent
-            'train_batch_size': 8 if "large" in model_name else 32,
-            'eval_batch_size': 8 if "large" in model_name else 32,
+            'train_batch_size': 16 if "large" in model_name else 32,
+            'eval_batch_size': 16 if "large" in model_name else 32,
             # Doubles train_batch_size, but gradients and wrights are calculated once every 2 steps
             'gradient_accumulation_steps': 2 if "large" in model_name else 1,
-            'max_seq_length': 64,
+            'max_seq_length': 32,
             'use_early_stopping': True,
             'wandb_project': model_output.split("/")[-1],
             #'wandb_kwargs': {'reinit': True},
             # "adam_epsilon": 3e-5,  # 1e-8
             "silent": False,
             "fp16": False,
-            "n_gpu": 1,
+            "n_gpu": 2,
     })
     # train the model
     if lang == "multi":
@@ -251,40 +258,33 @@ for lang, (model_type, model_name) in product(langs, models):
         es_test["predicted"], *_ = model.predict(es_test.text.values)
         es_test["predicted"] = es_test["predicted"].apply(label2metric)
         es_test["pred"] = es_test.apply(lambda x: str(x.predicted)[:int(x.length)], axis=1)
-        es_acc = sum(es_test.meter == es_test.pred) / es_test.meter.size
-        logging.info("Accuracy [{}:es]: {} ({})".format(lang, es_acc, model_name))
-        logging.info("SOTA [{}:es]: {}".format(lang, es_sota))
-        wandb.log({"accuracy_es": es_acc})
-        wandb.log({"sota_es": es_sota})
+        es_bert = sum(es_test.meter == es_test.pred) / es_test.meter.size
+        logging.info("Accuracy [{}:es]: {} ({})".format(lang, es_bert, model_name))
+        wandb.log({"accuracy_es": es_bert})
     if lang in ("en", "multi"):
         en_test["predicted"], *_ = model.predict(en_test.text.values)
         en_test["predicted"] = en_test["predicted"].apply(label2metric)
         en_test["pred"] = en_test.apply(lambda x: str(x.predicted)[:int(x.length)], axis=1)
-        en_acc = sum(en_test.meter == en_test.pred) / en_test.meter.size
-        logging.info("Accuracy [{}:en]: {} ({})".format(lang, en_acc, model_name))
-        logging.info("SOTA [{}:en]: {}".format(lang, en_sota))
-        wandb.log({"accuracy_en": en_acc})
-        wandb.log({"sota_en": en_sota})
+        en_bert = sum(en_test.meter == en_test.pred) / en_test.meter.size
+        logging.info("Accuracy [{}:en]: {} ({})".format(lang, en_bert, model_name))
+        wandb.log({"accuracy_en": en_bert})
     if lang in ("ge", "multi"):
         ge_test["predicted"], *_ = model.predict(ge_test.text.values)
         ge_test["predicted"] = ge_test["predicted"].apply(label2metric)
         ge_test["pred"] = ge_test.apply(lambda x: str(x.predicted)[:int(x.length)], axis=1)
-        ge_acc = sum(ge_test.meter == ge_test.pred) / ge_test.meter.size
-        logging.info("Accuracy [{}:ge]: {} ({})".format(lang, ge_acc, model_name))
-        logging.info("SOTA [{}:ge]: {}".format(lang, ge_sota))
-        wandb.log({"accuracy_ge": ge_acc})
-        wandb.log({"sota_ge": ge_sota})
+        ge_bert = sum(ge_test.meter == ge_test.pred) / ge_test.meter.size
+        logging.info("Accuracy [{}:ge]: {} ({})".format(lang, ge_bert, model_name))
+        wandb.log({"accuracy_ge": ge_bert})
     if lang in ("multi", ):
         test_df = pd.concat([es_test, en_test, ge_test], ignore_index=True)
         test_df["predicted"], *_ = model.predict(test_df.text.values)
         test_df["predicted"] = test_df["predicted"].apply(label2metric)
         test_df["pred"] = test_df.apply(lambda x: str(x.predicted)[:int(x.length)], axis=1)
-        multi_acc = sum(test_df.meter == test_df.pred) / test_df.meter.size
-        logging.info("Accuracy [{}:multi]: {} ({})".format(lang, multi_acc, model_name))
-        logging.info("SOTA [{}:multi]: {}".format(lang, (es_sota + en_sota + ge_sota) / 3))
-        wandb.log({"accuracy_multi": multi_acc})
-        wandb.log({"sota_multi": (es_sota + en_sota + ge_sota) / 3})
+        multi_bert = sum(test_df.meter == test_df.pred) / test_df.meter.size
+        logging.info("Accuracy [{}:multi]: {} ({})".format(lang, multi_bert, model_name))
+        wandb.log({"accuracy_multi": multi_bert})
     run.finish()
     logging.info("Done training '{}'".format(model_output))
     # get_ipython().system("rm -rf `ls -dt models/{}-*/checkpoint*/ | awk 'NR>5'`".format(TAG))
 logging.info("Done training")
+

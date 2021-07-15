@@ -133,3 +133,4 @@ corpora/
 data/
 runs/
 models/
+tmp/

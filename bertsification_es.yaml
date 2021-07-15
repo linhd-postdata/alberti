@@ -1,0 +1,41 @@
+name: BERTsification evaluation es
+project: bertsification-sweep
+program: bertsification_eval.py
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+method: grid
+metric:
+  name: eval:accuracy
+  goal: maximize
+parameters:
+  model_name:
+    # "bert:dccuchile/bert-base-spanish-wwm-cased", "bert:bert-base-german-cased", "bert:bert-base-cased"
+    # "roberta:roberta-large", "xlmroberta:xlm-roberta-large", "bert:bert-large-cased"
+    value: "bert:dccuchile/bert-base-spanish-wwm-cased"
+  lang:
+    value: "es"
+  num_train_epochs:
+    values: [10, 100]  # 15
+  warmup_ratio:
+    value: 0.1
+  weight_decay:
+    value: 0.01
+  learning_rate:
+    values: [10e-6, 15e-6]
+  max_seq_length:
+    value: 24
+  num_labels:
+    value: 12  # it must divide max_seq_length exactly
+  eval_batch_size:
+    value: 8
+  train_batch_size:
+    value: 8
+  cache_dir:
+    value: ./cache
+  output_dir:
+    value: ./output
+  seed:
+    value: 2021
