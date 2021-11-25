@@ -79,6 +79,28 @@ es_train.to_csv("data/es_train.csv", index=None)
 es_dev.to_csv("data/es_dev.csv", index=None)
 es_test.to_csv("data/es_test.csv", index=None)
 
+# Spanish es2
+logging.info("Spanish")
+es = (pd
+    .read_csv("data/adso_rantanplan.csv")
+    .rename(columns={"line_text": "text", "metrical_pattern": "meter", "rantanplan": "sota"})
+    .assign(
+        text=lambda x: x["text"].apply(clean_text),
+        length=lambda x: x["meter"].str.len()
+    )
+    .drop_duplicates("text")
+    .query("length in (11, )")
+)
+es_train_eval, es_test = train_test_split(es, test_size=0.15, random_state=42)
+es_train, es_dev = train_test_split(
+    es_train_eval.drop("sota", axis="columns"), test_size=0.176, random_state=42)
+es_sota = sum(es_test.meter == es_test.sota) / es_test.meter.size
+logging.info("- Lines: {} train, {} eval, {} test".format(es_train.shape[0], es_dev.shape[0], es_test.shape[0]))
+logging.info("- SOTA: {}".format(es_sota))
+es_train.to_csv("data/es2_train.csv", index=None)
+es_dev.to_csv("data/es2_dev.csv", index=None)
+es_test.to_csv("data/es2_test.csv", index=None)
+
 
 # English
 logging.info("English")
@@ -160,10 +182,13 @@ ge_test.to_csv("data/ge_test.csv", index=None)
 
 
 """
+Spanish (es2)
+- Lines: 7095 train, 1516 eval, 1520 test
+- SOTA: 0.9289473684210526
 Spanish
 - Lines: 6558 train, 2187 eval, 1401 test
 - SOTA: 0.9623
-English
+English (en2)
 - Lines: 1893 train, 406 eval, 406 test
 - SOTA: 0.42857142857142855
 German

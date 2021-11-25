@@ -66,13 +66,14 @@ BASE_URL = "https://storage.googleapis.com/postdata-models/bertsification/data"
 def main(args):
     assert args.lang in ("es", "en", "de", "multi")
     # Spanish
-    es_train = pd.read_csv(f"{BASE_URL}/es_train.csv")
-    es_eval = pd.read_csv(f"{BASE_URL}/es_dev.csv")
-    es_test = pd.read_csv(f"{BASE_URL}/es_test.csv")
+    es_train = pd.read_csv(f"{BASE_URL}/es2_train.csv")
+    es_eval = pd.read_csv(f"{BASE_URL}/es2_dev.csv")
+    es_test = pd.read_csv(f"{BASE_URL}/es2_test.csv")
     es_train["labels"] = es_train.meter.apply(metric2binary)
     es_eval["labels"] = es_eval.meter.apply(metric2binary)
     es_test["labels"] = es_test.meter.apply(metric2binary)
-    es_sota = 0.9623  # From Rantanplan
+    # es_sota = 0.9623  # From Rantanplan
+    es_sota = sum(es_test.meter == es_test.sota) / es_test.meter.size
 
     # English
     en_train = pd.read_csv(f"{BASE_URL}/en_train.csv")
@@ -131,7 +132,7 @@ def main(args):
         # 'save_steps': 500,
         'save_eval_checkpoints': False,
         'save_model_every_epoch': False,
-        'no_save': False,
+        'no_save': True,
         'evaluate_during_training': True,
         'evaluate_during_training_steps': 500,
         'use_early_stopping': False,
@@ -147,7 +148,7 @@ def main(args):
         'max_seq_length': args.max_seq_length,
         'wandb_kwargs': {'name': run_name},  # 'reinit': True
         # "adam_epsilon": 3e-5,  # 1e-8
-        "silent": True,
+        "silent": False,
         "fp16": True,
         "n_gpu": 1,
         'manual_seed': args.seed,
