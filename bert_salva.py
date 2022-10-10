@@ -294,8 +294,9 @@ from sklearn.model_selection import KFold
 from sklearn.linear_model import LogisticRegression
 import csv
 import pandas as pd
-if __name__ == '__main__':
-  pd.read_csv('training.csv')
-  X_train, X_test, y_train, y_test = train_test_split(training.Sentence, iris.Metaphor, test_size=0.2, random_state=0)
 
-  print(X_test, y_test)
+if __name__ == '__main__':
+    treining = pd.read_csv('training.csv')
+    X_train, X_test, y_train, y_test = train_test_split(training.Sentence, iris.Metaphor, test_size=0.2, random_state=0)
+
+    print(X_test, y_test)
